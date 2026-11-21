@@ -382,7 +382,7 @@
          * 실시간 한·영 양방향 텍스트 통역기 애플리케이션 (통합 버전)
          * - 모드 1: 단일 창 한·영 자동 구분 양방향 번역 + 좌우 2단 분할(KO->EN / EN->KO) 지원
          * - 모드 2: 단방향 고정 모드 + 오디오 입력 장치(마이크 / 스테레오 믹스) 개별 선택 지원
-         * - Gemini API (gemini-2.5-flash) 연동 및 완전 무음 자막 출력
+         * - Gemini API (gemini-3.8-flash) 연동 및 완전 무음 자막 출력
          */
 
         // 상태 관리 변수
@@ -461,10 +461,17 @@
         let koTurnCount = 0;
         let enTurnCount = 0;
 
-        function buildGeminiUrl() {
+        function getGeminiEndpoint() {
+            return 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent';
+        }
+
+        function getGeminiHeaders() {
+            const headers = { 'Content-Type': 'application/json' };
             const customKey = (state.userApiKey || '').trim();
-            const base = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
-            return customKey ? `${base}?key=${encodeURIComponent(customKey)}` : `${base}?key=`;
+            if (customKey) {
+                headers['x-goog-api-key'] = customKey;
+            }
+            return headers;
         }
 
         function updateApiKeyBannerVisibility() {
@@ -565,7 +572,6 @@
             const splitCard = appendChronologicalSplitRow(cleaned, directionCode, timeStr, isKoToEn);
             scrollToBottom();
 
-            const apiUrl = buildGeminiUrl();
             const targetLangName = isKoToEn ? 'natural spoken business English' : 'natural spoken Korean (부드러운 비즈니스 구어체 존댓말)';
             const recentContext = getRecentConversationContext();
 
@@ -577,9 +583,9 @@
 
             try {
                 updateStatusUI('translating');
-                const response = await fetch(apiUrl, {
+                const response = await fetch(getGeminiEndpoint(), {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getGeminiHeaders(),
                     body: JSON.stringify({
                         contents: [{ parts: [{ text: prompt }] }],
                         generationConfig: { temperature: 0.25 }
@@ -1114,8 +1120,6 @@
         }
 
         async function processGeminiAudioChunk(audioBlob) {
-            const apiUrl = buildGeminiUrl();
-
             try {
                 updateStatusUI('translating');
                 const base64Audio = await new Promise((resolve, reject) => {
@@ -1136,9 +1140,9 @@
                     "Respond ONLY in valid JSON: " +
                     "{\"empty\": false, \"lang\": \"ko\" or \"en\", \"original\": \"exact spoken words\", \"translated\": \"natural idiomatic translation\"}";
 
-                const response = await fetch(apiUrl, {
+                const response = await fetch(getGeminiEndpoint(), {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getGeminiHeaders(),
                     body: JSON.stringify({
                         contents: [{
                             parts: [
