@@ -382,7 +382,7 @@
          * 실시간 한·영 양방향 텍스트 통역기 애플리케이션 (통합 버전)
          * - 모드 1: 단일 창 한·영 자동 구분 양방향 번역 + 좌우 2단 분할(KO->EN / EN->KO) 지원
          * - 모드 2: 단방향 고정 모드 + 오디오 입력 장치(마이크 / 스테레오 믹스) 개별 선택 지원
-         * - Gemini API (gemini-3.8-flash) 연동 및 완전 무음 자막 출력
+         * - Gemini API (자동 혼잡 우회: gemini-3.8-flash -> gemini-3-flash-preview -> gemini-3.1-flash-lite-preview)
          */
 
         // 상태 관리 변수
@@ -461,9 +461,11 @@
         let koTurnCount = 0;
         let enTurnCount = 0;
 
-        function getGeminiEndpoint() {
-            return 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent';
-        }
+        const GEMINI_FALLBACK_MODELS = [
+            'gemini-3.8-flash',
+            'gemini-3-flash-preview',
+            'gemini-3.1-flash-lite-preview'
+        ];
 
         function getGeminiHeaders() {
             const headers = { 'Content-Type': 'application/json' };
@@ -472,6 +474,34 @@
                 headers['x-goog-api-key'] = customKey;
             }
             return headers;
+        }
+
+        async function callGeminiWithFallback(payload) {
+            let lastError = null;
+            for (const model of GEMINI_FALLBACK_MODELS) {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: getGeminiHeaders(),
+                        body: JSON.stringify(payload)
+                    });
+                    if (response.ok) {
+                        return await response.json();
+                    }
+                    const errData = await response.json().catch(() => ({}));
+                    const errMsg = errData?.error?.message || `HTTP ${response.status}`;
+                    lastError = new Error(errMsg);
+                    // 혼잡(503), 과부하(429), 또는 구버전 미지원(404) 시 다음 예비 모델로 즉시 자동 전환
+                    if ([429, 500, 502, 503, 504, 404].includes(response.status) || /high demand|overloaded|unavailable/i.test(errMsg)) {
+                        continue;
+                    }
+                    throw lastError;
+                } catch (err) {
+                    lastError = err;
+                }
+            }
+            throw lastError || new Error('AI 서버 응답 지연');
         }
 
         function updateApiKeyBannerVisibility() {
@@ -583,22 +613,10 @@
 
             try {
                 updateStatusUI('translating');
-                const response = await fetch(getGeminiEndpoint(), {
-                    method: 'POST',
-                    headers: getGeminiHeaders(),
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }],
-                        generationConfig: { temperature: 0.25 }
-                    })
+                const result = await callGeminiWithFallback({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: { temperature: 0.25 }
                 });
-
-                if (!response.ok) {
-                    const errData = await response.json().catch(() => ({}));
-                    const errMsg = errData?.error?.message || `HTTP ${response.status}`;
-                    throw new Error(`번역 오류: ${errMsg}`);
-                }
-
-                const result = await response.json();
                 const translated = (result?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
                 const finalOut = translated || '(번역 결과 없음)';
 
@@ -616,7 +634,7 @@
             } catch (err) {
                 singleCard.querySelector('.translated-body').innerHTML = `<span class="text-red-500 text-sm">${escapeHtml(err.message)}</span>`;
                 splitCard.querySelector('.translated-body').innerHTML = `<span class="text-red-500 text-sm">${escapeHtml(err.message)}</span>`;
-                showAlert(err.message);
+                showAlert(`번역 오류: ${err.message}`);
             } finally {
                 if (state.isListening) updateStatusUI('listening');
                 else updateStatusUI('idle');
@@ -720,7 +738,7 @@
                 els.toggleMicBtn.className = 'relative mic-pulse flex-1 sm:flex-initial sm:min-w-[170px] flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-bold text-sm sm:text-base shadow-lg shadow-red-600/30 transition-all';
                 els.micBtnText.textContent = '통역 중지';
             } else {
-                els.toggleMicBtn.className = 'relative flex-1 sm:flex-initial sm:min-w-[170px] flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-bold text-sm sm:text-base shadow-lg shadow-blue-600/25 transition-all';
+                els.toggleMicBtn.className = 'relative flex-1 sm:flex-initial sm:min-w-[170px] flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-800 text-white font-bold text-sm sm:text-base shadow-lg shadow-blue-600/25 transition-all';
                 els.micBtnText.textContent = '통역 시작';
             }
         }
@@ -948,6 +966,8 @@
             let ambientFloor = 6;
             let peakSpeechVolume = 0;
             let isFlushing = false;
+            let zeroSignalTicks = 0;
+            let warnedZeroSignal = false;
 
             const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
                 ? 'audio/webm;codecs=opus'
@@ -1046,6 +1066,17 @@
                 }
                 const avgVolume = binCount > 0 ? (voiceSum / binCount) : 0;
 
+                // 6초 이상 마이크 신호가 완전히 0이면 입력 장치 변경 안내
+                if (avgVolume < 0.2 && rmsLevel < 0.1) {
+                    zeroSignalTicks++;
+                    if (zeroSignalTicks >= 60 && !warnedZeroSignal) {
+                        warnedZeroSignal = true;
+                        showAlert('현재 선택된 입력 장치에서 마이크 소리가 감지되지 않습니다. 상단 [입력:] 드롭다운에서 다른 마이크를 선택해 주세요.');
+                    }
+                } else {
+                    zeroSignalTicks = 0;
+                }
+
                 if (!hasSpeech) {
                     ambientFloor = Math.min(22, ambientFloor * 0.90 + avgVolume * 0.10);
                 }
@@ -1140,30 +1171,19 @@
                     "Respond ONLY in valid JSON: " +
                     "{\"empty\": false, \"lang\": \"ko\" or \"en\", \"original\": \"exact spoken words\", \"translated\": \"natural idiomatic translation\"}";
 
-                const response = await fetch(getGeminiEndpoint(), {
-                    method: 'POST',
-                    headers: getGeminiHeaders(),
-                    body: JSON.stringify({
-                        contents: [{
-                            parts: [
-                                { text: prompt },
-                                { inlineData: { mimeType: audioBlob.type.split(';')[0] || 'audio/webm', data: base64Audio } }
-                            ]
-                        }],
-                        generationConfig: {
-                            temperature: 0.0,
-                            responseMimeType: "application/json"
-                        }
-                    })
+                const result = await callGeminiWithFallback({
+                    contents: [{
+                        parts: [
+                            { text: prompt },
+                            { inlineData: { mimeType: audioBlob.type.split(';')[0] || 'audio/webm', data: base64Audio } }
+                        ]
+                    }],
+                    generationConfig: {
+                        temperature: 0.0,
+                        responseMimeType: "application/json"
+                    }
                 });
 
-                if (!response.ok) {
-                    const errData = await response.json().catch(() => ({}));
-                    const errMsg = errData?.error?.message || `HTTP ${response.status}`;
-                    throw new Error(`통역 연결 오류: ${errMsg}`);
-                }
-
-                const result = await response.json();
                 const rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
                 if (!rawText) return;
 
