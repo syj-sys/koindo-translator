@@ -156,6 +156,22 @@
         <button id="closeAlertBtn" class="text-amber-600 hover:text-amber-900 p-1">✕</button>
     </div>
 
+    <!-- 외부 도메인(GitHub 등) 접속 시 API 키 미등록 안내 배너 -->
+    <div id="apiKeyPromptBanner" class="hidden bg-blue-50 border-b border-blue-200 px-4 py-2.5 text-xs sm:text-sm text-blue-900 flex flex-wrap items-center justify-between gap-2 shrink-0">
+        <div class="flex items-center gap-2">
+            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white text-[11px] font-bold shrink-0">!</span>
+            <span>외부 웹사이트에서 통역을 사용하려면 <strong>Gemini API 키</strong>를 한 번만 등록해 주세요.</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" class="px-2.5 py-1 rounded-lg bg-white hover:bg-blue-100 text-blue-700 border border-blue-300 text-xs font-semibold transition-colors">
+                무료 키 발급 ↗
+            </a>
+            <button id="bannerOpenSettingsBtn" type="button" class="px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-colors">
+                API 키 입력하기
+            </button>
+        </div>
+    </div>
+
     <!-- 메인 자막 스크롤 영역 (순백색 배경) -->
     <main id="transcriptContainer" class="flex-1 overflow-y-auto bg-white p-4 sm:p-6 space-y-4 scroll-smooth">
         <!-- 초기 안내 카드 (상단 슬림 배너형 배치) -->
@@ -406,6 +422,8 @@
             alertBanner: document.getElementById('alertBanner'),
             alertMessage: document.getElementById('alertMessage'),
             closeAlertBtn: document.getElementById('closeAlertBtn'),
+            apiKeyPromptBanner: document.getElementById('apiKeyPromptBanner'),
+            bannerOpenSettingsBtn: document.getElementById('bannerOpenSettingsBtn'),
             transcriptContainer: document.getElementById('transcriptContainer'),
             welcomeCard: document.getElementById('welcomeCard'),
             transcriptList: document.getElementById('transcriptList'),
@@ -447,6 +465,19 @@
             const customKey = (state.userApiKey || '').trim();
             const base = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
             return customKey ? `${base}?key=${encodeURIComponent(customKey)}` : `${base}?key=`;
+        }
+
+        function updateApiKeyBannerVisibility() {
+            if (!els.apiKeyPromptBanner) return;
+            const isExternalHost = window.location.protocol.startsWith('http') &&
+                !window.location.hostname.includes('googleusercontent') &&
+                !window.location.hostname.includes('gemini.google');
+            const hasKey = Boolean((state.userApiKey || '').trim());
+            if (isExternalHost && !hasKey) {
+                els.apiKeyPromptBanner.classList.remove('hidden');
+            } else {
+                els.apiKeyPromptBanner.classList.add('hidden');
+            }
         }
 
         function scrollToBottom() {
@@ -1369,12 +1400,17 @@
         els.clearLogBtn.addEventListener('click', clearAllTranscripts);
         els.closeAlertBtn.addEventListener('click', hideAlert);
 
-        els.openSettingsBtn.addEventListener('click', () => {
+        const openSettingsModal = () => {
             els.apiKeyInput.value = state.userApiKey;
             els.recognitionLangSelect.value = state.recognitionLang;
             els.fontSizeSelect.value = state.fontSize;
             els.settingsModal.classList.remove('hidden');
-        });
+        };
+
+        els.openSettingsBtn.addEventListener('click', openSettingsModal);
+        if (els.bannerOpenSettingsBtn) {
+            els.bannerOpenSettingsBtn.addEventListener('click', openSettingsModal);
+        }
 
         const closeSettings = () => els.settingsModal.classList.add('hidden');
         els.closeSettingsBtn.addEventListener('click', closeSettings);
@@ -1389,6 +1425,7 @@
             localStorage.setItem('interpreter_lang', state.recognitionLang);
             localStorage.setItem('interpreter_font_size', state.fontSize);
 
+            updateApiKeyBannerVisibility();
             updateLangUI();
 
             document.querySelectorAll('.translated-body').forEach(el => {
@@ -1408,6 +1445,7 @@
         });
 
         window.addEventListener('load', async () => {
+            updateApiKeyBannerVisibility();
             els.noiseGateSlider.value = state.noiseGateThreshold;
             updateNoiseGateLabel(state.noiseGateThreshold);
             updateModeAndLayoutUI();
