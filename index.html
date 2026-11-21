@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>바이어 상담 TEXT 통역기</title>
+    <!-- Tailwind CSS 로드 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter 및 Noto Sans KR -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Noto Sans KR"', 'Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 스크롤바 커스텀 (라이트 테마) */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f8fafc; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+        /* 마이크 활성화 펄스 애니메이션 */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.7; }
+            50% { transform: scale(1.15); opacity: 0.2; }
+            100% { transform: scale(0.95); opacity: 0.7; }
+        }
+        .mic-pulse::before {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 9999px;
+            background-color: #ef4444;
+            animation: pulse-ring 1.8s infinite ease-in-out;
+            z-index: -1;
+        }
+    </style>
+</head>
+<body class="bg-white text-slate-900 h-[100dvh] flex flex-col overflow-hidden select-none sm:select-auto">
+
+    <!-- 상단 헤더 -->
+    <header class="bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 py-3 flex items-center justify-between shrink-0 z-20">
+        <div class="flex items-center gap-2.5">
+            <div>
+                <h1 class="font-bold text-base sm:text-lg tracking-tight text-slate-900 leading-tight">바이어 상담 TEXT 통역기</h1>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2 sm:gap-3">
+            <!-- 2단 분할 토글 버튼 (모드 1 전용) -->
+            <button id="splitViewBtn" type="button" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition-colors" title="좌우 2단 분할 화면 전환">
+                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"></path>
+                </svg>
+                <span id="splitViewBtnText">2단 분할</span>
+            </button>
+
+            <!-- 상태 배지 -->
+            <div id="statusBadge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-300">
+                <span id="statusDot" class="w-2 h-2 rounded-full bg-slate-400"></span>
+                <span id="statusText">대기 중</span>
+            </div>
+
+            <!-- 설정 버튼 -->
+            <button id="openSettingsBtn" type="button" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition-colors" title="API 키 및 설정">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- 서브 툴바: 인식 엔진 선택, 모드 선택 및 오디오 입력 장치 드롭다운 -->
+    <div class="bg-slate-50 border-b border-slate-200 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 shrink-0 z-10">
+        <!-- 음성 인식 엔진 선택 (제미나이 동시 오디오 vs 브라우저 즉시 인식) -->
+        <div class="flex items-center bg-slate-200/80 p-1 rounded-xl border border-slate-300/80">
+            <button id="engineGeminiBtn" type="button" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all bg-indigo-600 text-white shadow-sm" title="한국어와 영어를 전환 없이 동시에 인식합니다">
+                ⚡ AI 동시 인식 (한·영 자동)
+            </button>
+            <button id="engineBrowserBtn" type="button" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900" title="하단 버튼으로 한국어/영어를 즉시 전환하며 초고속 인식합니다">
+                🎙️ 브라우저 즉시 인식
+            </button>
+        </div>
+
+        <!-- 모드 전환 탭 (1번: 양방향 자동 / 2번: 단방향 창 분리용) -->
+        <div class="flex items-center bg-slate-200/80 p-1 rounded-xl border border-slate-300/80">
+            <button id="mode1Btn" type="button" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all bg-blue-600 text-white shadow-sm">
+                양방향 자동
+            </button>
+            <button id="mode2Btn" type="button" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900">
+                단방향 (창 분리)
+            </button>
+        </div>
+
+        <!-- 오디오 입력 장치 선택 (마이크 / 스테레오 믹스) + 실시간 볼륨 미터 -->
+        <div class="flex items-center gap-2 flex-1 sm:flex-initial min-w-[230px] max-w-full">
+            <label for="audioDeviceSelect" class="text-[11px] font-medium text-slate-600 shrink-0 flex items-center gap-1">
+                <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+                </svg>
+                입력:
+            </label>
+            <select id="audioDeviceSelect" class="flex-1 bg-white border border-slate-300 focus:border-blue-500 rounded-lg px-2 py-1.5 text-xs text-slate-800 focus:outline-none truncate">
+                <option value="default">기본 입력 장치 (Default)</option>
+            </select>
+            <!-- 실시간 입력 소리 레벨 미터 -->
+            <div class="w-12 h-2.5 bg-slate-200 rounded-full overflow-hidden border border-slate-300 shrink-0" title="실시간 마이크/스테레오 믹스 소리 입력 크기">
+                <div id="audioLevelBar" class="h-full w-0 bg-emerald-500 transition-all duration-75"></div>
+            </div>
+            <button id="refreshDevicesBtn" type="button" class="p-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-600 border border-slate-300" title="오디오 장치 목록 새로고침">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- 근접 화자 집중(노이즈 게이트) 감도 조절 바 -->
+        <div class="flex items-center gap-2 bg-white border border-slate-300 rounded-xl px-2.5 py-1.5 shrink-0" title="값을 높일수록 주위 잡음을 차단하고 마이크 바로 앞 목소리만 인식합니다">
+            <span class="text-[11px] font-semibold text-amber-600 shrink-0 flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+                </svg>
+                잡음 차단:
+            </span>
+            <input type="range" id="noiseGateSlider" min="10" max="50" value="18" class="w-16 sm:w-20 accent-amber-500 cursor-pointer h-1.5 bg-slate-200 rounded-lg">
+            <span id="noiseGateLabel" class="text-[11px] font-semibold text-slate-700 w-12 text-right">보통 (18)</span>
+        </div>
+    </div>
+
+    <!-- 알림 / 에러 배너 -->
+    <div id="alertBanner" class="hidden bg-amber-50 border-b border-amber-300 px-4 py-2.5 text-xs sm:text-sm text-amber-900 flex items-center justify-between gap-3 shrink-0">
+        <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+            <span id="alertMessage">메시지</span>
+        </div>
+        <button id="closeAlertBtn" class="text-amber-600 hover:text-amber-900 p-1">✕</button>
+    </div>
+
+    <!-- 메인 자막 스크롤 영역 (순백색 배경) -->
+    <main id="transcriptContainer" class="flex-1 overflow-y-auto bg-white p-4 sm:p-6 space-y-4 scroll-smooth">
+        <!-- 초기 안내 카드 (상단 슬림 배너형 배치) -->
+        <div id="welcomeCard" class="bg-slate-50/90 border border-slate-200/80 rounded-xl px-3.5 py-2.5 max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-600">
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <span class="font-bold text-slate-800 flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                    사용 안내
+                </span>
+                <span><strong class="text-blue-700">1번(양방향):</strong> 자동 판별 · <strong>[2단 분할]</strong> 시 좌(한→영)/우(영→한) 분리</span>
+                <span class="hidden md:inline text-slate-300">|</span>
+                <span><strong class="text-emerald-700">2번(창 분리):</strong> 창별 입력 장치(마이크 / 스테레오 믹스) 개별 지정</span>
+            </div>
+            <button type="button" onclick="document.getElementById('welcomeCard').classList.add('hidden')" class="self-end sm:self-center text-slate-400 hover:text-slate-700 px-1.5 py-0.5 rounded text-[11px] shrink-0" title="안내 닫기">
+                닫기 ✕
+            </button>
+        </div>
+
+        <!-- 단일 통합 리스트 뷰 -->
+        <div id="transcriptList" class="space-y-4 max-w-3xl mx-auto"></div>
+
+        <!-- 2단 분할 뷰 (시간순 행 기반: 왼쪽 KO -> EN, 오른쪽 EN -> KO) -->
+        <div id="splitViewGrid" class="hidden flex-col gap-3 max-w-6xl mx-auto">
+            <!-- 고정 컬럼 헤더 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 sticky top-0 z-10 bg-white/95 backdrop-blur-sm py-2 border-b border-slate-200">
+                <div class="bg-blue-50/90 border border-blue-200 rounded-xl px-3.5 py-2 flex items-center justify-between">
+                    <span class="text-xs font-bold text-blue-800 flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-blue-600"></span>
+                        한국어 → 영어 (KO → EN)
+                    </span>
+                    <span id="koCountBadge" class="text-[11px] font-semibold text-blue-700">0건</span>
+                </div>
+                <div class="bg-emerald-50/90 border border-emerald-200 rounded-xl px-3.5 py-2 flex items-center justify-between">
+                    <span class="text-xs font-bold text-emerald-800 flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
+                        영어 → 한국어 (EN → KO)
+                    </span>
+                    <span id="enCountBadge" class="text-[11px] font-semibold text-emerald-700">0건</span>
+                </div>
+            </div>
+            <!-- 시간 순서대로 한 줄씩 아래로 쌓이는 대화 타임라인 -->
+            <div id="splitTimelineRows" class="space-y-3"></div>
+        </div>
+
+        <!-- 현재 인식 중인 실시간 중간 자막 (Interim) - 컴팩트 미니 표시줄 -->
+        <div id="interimBox" class="hidden max-w-3xl mx-auto bg-emerald-50/90 border border-dashed border-emerald-400 rounded-xl px-3 py-1.5 flex items-center justify-between gap-2 transition-all">
+            <div class="flex items-center gap-2 min-w-0">
+                <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping shrink-0"></span>
+                <span id="interimLangLabel" class="text-[10px] font-bold text-emerald-700 shrink-0">수신 중</span>
+                <p id="interimText" class="text-slate-700 italic text-xs truncate"></p>
+            </div>
+            <button id="forceSendBtn" type="button" class="px-2 py-0.5 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-semibold shrink-0 transition-colors">
+                즉시 번역 ↵
+            </button>
+        </div>
+    </main>
+
+    <!-- 하단 컨트롤 바 -->
+    <footer class="bg-slate-50 border-t border-slate-200 p-3 sm:p-4 shrink-0 z-20">
+        <div class="max-w-3xl mx-auto space-y-3">
+            
+            <!-- 수동 텍스트 입력 (마이크 불가 시 대체용) -->
+            <form id="manualInputForm" class="flex gap-2">
+                <input 
+                    type="text" 
+                    id="manualTextInput" 
+                    placeholder="마이크 사용이 어려울 때 직접 문장을 입력해 번역하세요 (한국어 / English)..." 
+                    class="flex-1 bg-white border border-slate-300 focus:border-blue-500 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none transition-colors"
+                    autocomplete="off"
+                >
+                <button 
+                    type="submit" 
+                    class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-white font-medium text-sm rounded-xl transition-colors shrink-0">
+                    번역
+                </button>
+            </form>
+
+            <!-- 메인 액션 버튼 그룹 -->
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <!-- 듣기 언어 전환 스위치 -->
+                <button 
+                    id="langToggleBtn" 
+                    type="button"
+                    class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-3.5 py-3 rounded-xl bg-white hover:bg-slate-100 active:bg-slate-200 border border-slate-300 text-xs sm:text-sm font-medium text-slate-700 transition-all"
+                    title="음성 인식 주 언어를 전환합니다">
+                    <svg class="w-4 h-4 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                    </svg>
+                    <span id="langDirectionText">주 인식: 한국어 우선 (자동 양방향)</span>
+                </button>
+
+                <!-- 통역 시작 / 중지 메인 버튼 -->
+                <button 
+                    id="toggleMicBtn" 
+                    type="button"
+                    class="relative flex-1 sm:flex-initial sm:min-w-[170px] flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm sm:text-base shadow-md shadow-blue-600/20 transition-all">
+                    <svg id="micIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+                    </svg>
+                    <span id="micBtnText">통역 시작</span>
+                </button>
+
+                <!-- 유틸리티 버튼 (복사 / 지우기) -->
+                <div class="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+                    <button 
+                        id="copyAllBtn" 
+                        type="button"
+                        class="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-xs font-medium border border-slate-300 transition-colors"
+                        title="전체 통역 기록 복사">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+                        </svg>
+                        <span>전체 복사</span>
+                    </button>
+                    <button 
+                        id="clearLogBtn" 
+                        type="button"
+                        class="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-white hover:bg-red-50 hover:text-red-600 hover:border-red-300 text-slate-700 text-xs font-medium border border-slate-300 transition-colors"
+                        title="자막 기록 모두 지우기">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                        <span>지우기</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 오른쪽 하단 저작권 표기 -->
+            <div class="flex justify-end pt-1">
+                <p class="text-[11px] font-medium text-slate-400 tracking-wide">
+                    © KOINDO TRADING. All rights reserved.
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 설정 모달 -->
+    <div id="settingsModal" class="hidden fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white border border-slate-200 rounded-2xl w-full max-w-md p-5 sm:p-6 shadow-2xl space-y-5">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+                <h3 class="text-lg font-bold text-slate-900">통역기 설정</h3>
+                <button id="closeSettingsBtn" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg">✕</button>
+            </div>
+
+            <div class="space-y-4">
+                <!-- Gemini API 키 입력 -->
+                <div>
+                    <label for="apiKeyInput" class="block text-sm font-semibold text-slate-800 mb-1.5">
+                        Gemini API 키 <span class="text-xs text-slate-500 font-normal">(선택 사항 / 기본 환경 자동 연동)</span>
+                    </label>
+                    <input 
+                        type="password" 
+                        id="apiKeyInput" 
+                        placeholder="비워두면 기본 내장 환경으로 자동 작동합니다" 
+                        class="w-full bg-slate-50 border border-slate-300 focus:border-blue-500 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none"
+                    >
+                    <p class="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+                        이 창에서는 별도 입력 없이 바로 작동합니다. 만약 파일을 다운로드해 외부에서 단독으로 열 때만 개인 API 키를 입력해 주세요.
+                    </p>
+                </div>
+
+                <!-- 음성 인식 주 언어 선택 -->
+                <div>
+                    <label for="recognitionLangSelect" class="block text-sm font-semibold text-slate-800 mb-1.5">
+                        음성 인식 기본 언어 (마이크 듣기 기준)
+                    </label>
+                    <select 
+                        id="recognitionLangSelect" 
+                        class="w-full bg-slate-50 border border-slate-300 focus:border-blue-500 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none">
+                        <option value="ko-KR">한국어 우선 듣기 (ko-KR) → 영어 번역</option>
+                        <option value="en-US">영어 우선 듣기 (en-US) → 한국어 번역</option>
+                    </select>
+                </div>
+
+                <!-- 자막 글자 크기 조절 -->
+                <div>
+                    <label for="fontSizeSelect" class="block text-sm font-semibold text-slate-800 mb-1.5">
+                        번역 자막 크기
+                    </label>
+                    <select 
+                        id="fontSizeSelect" 
+                        class="w-full bg-slate-50 border border-slate-300 focus:border-blue-500 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 focus:outline-none">
+                        <option value="normal">보통 (기본)</option>
+                        <option value="large" selected>크게 (자막 추천)</option>
+                        <option value="xlarge">매우 크게 (시인성 강조)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
+                <button id="cancelSettingsBtn" type="button" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium">
+                    취소
+                </button>
+                <button id="saveSettingsBtn" type="button" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold shadow-md shadow-blue-600/20">
+                    저장하기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 복사 완료 토스트 메시지 -->
+    <div id="toast" class="fixed bottom-24 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs sm:text-sm px-4 py-2.5 rounded-full shadow-xl opacity-0 pointer-events-none transition-opacity duration-300 z-50">
+        클립보드에 복사되었습니다.
+    </div>
+
+    <script>
+        /**
+         * 실시간 한·영 양방향 텍스트 통역기 애플리케이션 (통합 버전)
+         * - 모드 1: 단일 창 한·영 자동 구분 양방향 번역 + 좌우 2단 분할(KO->EN / EN->KO) 지원
+         * - 모드 2: 단방향 고정 모드 + 오디오 입력 장치(마이크 / 스테레오 믹스) 개별 선택 지원
+         * - Gemini API (gemini-2.5-flash) 연동 및 완전 무음 자막 출력
+         */
+
+        // 상태 관리 변수
+        const state = {
+            isListening: false,
+            sttEngine: localStorage.getItem('interpreter_stt_engine') || 'gemini', // 'gemini' (동시 오디오) | 'browser' (Web Speech)
+            appMode: localStorage.getItem('interpreter_app_mode') || 'mode1', // 'mode1' (양방향 자동) | 'mode2' (단방향 고정)
+            splitView: localStorage.getItem('interpreter_split_view') === 'true',
+            recognitionLang: localStorage.getItem('interpreter_lang') || 'ko-KR', // 'ko-KR' | 'en-US'
+            selectedDeviceId: localStorage.getItem('interpreter_device_id') || 'default',
+            noiseGateThreshold: parseInt(localStorage.getItem('interpreter_noise_gate') || '18', 10),
+            userApiKey: localStorage.getItem('interpreter_api_key') || '',
+            fontSize: localStorage.getItem('interpreter_font_size') || 'large',
+            transcripts: [],
+            activeMediaStream: null,
+            audioContext: null,
+            mediaRecorder: null,
+            vadInterval: null
+        };
+
+        // DOM 요소 참조
+        const els = {
+            engineGeminiBtn: document.getElementById('engineGeminiBtn'),
+            engineBrowserBtn: document.getElementById('engineBrowserBtn'),
+            mode1Btn: document.getElementById('mode1Btn'),
+            mode2Btn: document.getElementById('mode2Btn'),
+            splitViewBtn: document.getElementById('splitViewBtn'),
+            splitViewBtnText: document.getElementById('splitViewBtnText'),
+            audioDeviceSelect: document.getElementById('audioDeviceSelect'),
+            audioLevelBar: document.getElementById('audioLevelBar'),
+            refreshDevicesBtn: document.getElementById('refreshDevicesBtn'),
+            noiseGateSlider: document.getElementById('noiseGateSlider'),
+            noiseGateLabel: document.getElementById('noiseGateLabel'),
+            statusBadge: document.getElementById('statusBadge'),
+            statusDot: document.getElementById('statusDot'),
+            statusText: document.getElementById('statusText'),
+            alertBanner: document.getElementById('alertBanner'),
+            alertMessage: document.getElementById('alertMessage'),
+            closeAlertBtn: document.getElementById('closeAlertBtn'),
+            transcriptContainer: document.getElementById('transcriptContainer'),
+            welcomeCard: document.getElementById('welcomeCard'),
+            transcriptList: document.getElementById('transcriptList'),
+            splitViewGrid: document.getElementById('splitViewGrid'),
+            splitTimelineRows: document.getElementById('splitTimelineRows'),
+            koCountBadge: document.getElementById('koCountBadge'),
+            enCountBadge: document.getElementById('enCountBadge'),
+            interimBox: document.getElementById('interimBox'),
+            interimLangLabel: document.getElementById('interimLangLabel'),
+            interimText: document.getElementById('interimText'),
+            forceSendBtn: document.getElementById('forceSendBtn'),
+            manualInputForm: document.getElementById('manualInputForm'),
+            manualTextInput: document.getElementById('manualTextInput'),
+            langToggleBtn: document.getElementById('langToggleBtn'),
+            langDirectionText: document.getElementById('langDirectionText'),
+            toggleMicBtn: document.getElementById('toggleMicBtn'),
+            micBtnText: document.getElementById('micBtnText'),
+            copyAllBtn: document.getElementById('copyAllBtn'),
+            clearLogBtn: document.getElementById('clearLogBtn'),
+            openSettingsBtn: document.getElementById('openSettingsBtn'),
+            settingsModal: document.getElementById('settingsModal'),
+            closeSettingsBtn: document.getElementById('closeSettingsBtn'),
+            cancelSettingsBtn: document.getElementById('cancelSettingsBtn'),
+            saveSettingsBtn: document.getElementById('saveSettingsBtn'),
+            apiKeyInput: document.getElementById('apiKeyInput'),
+            recognitionLangSelect: document.getElementById('recognitionLangSelect'),
+            fontSizeSelect: document.getElementById('fontSizeSelect'),
+            toast: document.getElementById('toast')
+        };
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        let isRecognitionActive = false;
+        let restartTimeout = null;
+        let koTurnCount = 0;
+        let enTurnCount = 0;
+
+        function buildGeminiUrl() {
+            const customKey = (state.userApiKey || '').trim();
+            const base = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+            return customKey ? `${base}?key=${encodeURIComponent(customKey)}` : `${base}?key=`;
+        }
+
+        function scrollToBottom() {
+            if (els.transcriptContainer) {
+                els.transcriptContainer.scrollTop = els.transcriptContainer.scrollHeight;
+            }
+        }
+
+        function getTranslatedFontSizeClass() {
+            if (state.fontSize === 'normal') return 'text-base sm:text-lg';
+            if (state.fontSize === 'xlarge') return 'text-xl sm:text-2xl';
+            return 'text-lg sm:text-xl';
+        }
+
+        function createSubtitleCardElement(originalText, directionCode, timeStr, isKoToEn) {
+            const card = document.createElement('div');
+            const cardTheme = isKoToEn
+                ? 'bg-blue-50/75 border-blue-200'
+                : 'bg-emerald-50/75 border-emerald-200';
+            const badgeStyle = isKoToEn
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-emerald-600 text-white border-emerald-600';
+            const originalColor = isKoToEn ? 'text-blue-800/80' : 'text-emerald-800/80';
+            const translatedColor = isKoToEn ? 'text-blue-950' : 'text-emerald-950';
+
+            card.dataset.side = isKoToEn ? 'left' : 'right';
+            card.className = `${cardTheme} border rounded-2xl p-4 sm:p-5 shadow-sm space-y-2 transition-all`;
+
+            card.innerHTML = `
+                <div class="flex items-center justify-between gap-2">
+                    <span class="px-2 py-0.5 rounded-md text-[11px] font-bold border ${badgeStyle}">${escapeHtml(directionCode)}</span>
+                    <span class="text-[11px] text-slate-500">${escapeHtml(timeStr)}</span>
+                </div>
+                <p class="text-xs sm:text-sm ${originalColor} font-medium leading-relaxed break-keep">${escapeHtml(originalText)}</p>
+                <p class="translated-body ${getTranslatedFontSizeClass()} font-bold ${translatedColor} leading-snug break-keep">
+                    <span class="text-slate-400 font-normal text-sm animate-pulse">번역 중...</span>
+                </p>
+            `;
+            return card;
+        }
+
+        function appendChronologicalSplitRow(originalText, directionCode, timeStr, isKoToEn) {
+            const row = document.createElement('div');
+            row.className = 'grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 items-start';
+
+            const leftSlot = document.createElement('div');
+            const rightSlot = document.createElement('div');
+            const splitCard = createSubtitleCardElement(originalText, directionCode, timeStr, isKoToEn);
+
+            if (isKoToEn) {
+                koTurnCount++;
+                els.koCountBadge.textContent = `${koTurnCount}건`;
+                leftSlot.appendChild(splitCard);
+                rightSlot.className = 'hidden md:block';
+            } else {
+                enTurnCount++;
+                els.enCountBadge.textContent = `${enTurnCount}건`;
+                leftSlot.className = 'hidden md:block';
+                rightSlot.appendChild(splitCard);
+            }
+
+            row.appendChild(leftSlot);
+            row.appendChild(rightSlot);
+            els.splitTimelineRows.appendChild(row);
+            return splitCard;
+        }
+
+        async function handleFinalSentence(rawText) {
+            const cleaned = rawText.trim();
+            if (!cleaned) return;
+
+            els.welcomeCard.classList.add('hidden');
+            const isKorean = /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/.test(cleaned);
+            const isKoToEn = state.appMode === 'mode2'
+                ? (state.recognitionLang === 'ko-KR')
+                : isKorean;
+
+            const directionCode = isKoToEn ? 'KO → EN' : 'EN → KO';
+            const timeStr = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const itemId = 'card-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
+
+            const singleCard = createSubtitleCardElement(cleaned, directionCode, timeStr, isKoToEn);
+            els.transcriptList.appendChild(singleCard);
+
+            const splitCard = appendChronologicalSplitRow(cleaned, directionCode, timeStr, isKoToEn);
+            scrollToBottom();
+
+            const apiUrl = buildGeminiUrl();
+            const targetLangName = isKoToEn ? 'natural spoken business English' : 'natural spoken Korean (부드러운 비즈니스 구어체 존댓말)';
+            const recentContext = getRecentConversationContext();
+
+            const prompt =
+                `You are a live business interpreter.\n` +
+                `RECENT CONVERSATION CONTEXT:\n${recentContext}\n\n` +
+                `Translate the following utterance into ${targetLangName} so it sounds natural and conversational. ` +
+                `Output ONLY the translated text with no quotes or extra explanation:\n"${cleaned}"`;
+
+            try {
+                updateStatusUI('translating');
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: { temperature: 0.25 }
+                    })
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({}));
+                    const errMsg = errData?.error?.message || `HTTP ${response.status}`;
+                    throw new Error(`번역 오류: ${errMsg}`);
+                }
+
+                const result = await response.json();
+                const translated = (result?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+                const finalOut = translated || '(번역 결과 없음)';
+
+                singleCard.querySelector('.translated-body').textContent = finalOut;
+                splitCard.querySelector('.translated-body').textContent = finalOut;
+
+                state.transcripts.push({
+                    id: itemId,
+                    original: cleaned,
+                    translated: finalOut,
+                    direction: directionCode,
+                    time: timeStr
+                });
+                scrollToBottom();
+            } catch (err) {
+                singleCard.querySelector('.translated-body').innerHTML = `<span class="text-red-500 text-sm">${escapeHtml(err.message)}</span>`;
+                splitCard.querySelector('.translated-body').innerHTML = `<span class="text-red-500 text-sm">${escapeHtml(err.message)}</span>`;
+                showAlert(err.message);
+            } finally {
+                if (state.isListening) updateStatusUI('listening');
+                else updateStatusUI('idle');
+            }
+        }
+
+        async function toggleListening() {
+            hideAlert();
+            if (state.isListening) {
+                state.isListening = false;
+                clearTimeout(restartTimeout);
+                stopAudioPipeline();
+                if (state.activeMediaStream) {
+                    state.activeMediaStream.getTracks().forEach(t => t.stop());
+                    state.activeMediaStream = null;
+                }
+                if (recognition) {
+                    isRecognitionActive = false;
+                    try { recognition.abort(); } catch (e) {}
+                }
+                els.interimBox.classList.add('hidden');
+                els.interimText.textContent = '';
+                updateMicButtonUI();
+                updateStatusUI('idle');
+                return;
+            }
+
+            try {
+                await bindSelectedAudioDevice();
+                state.isListening = true;
+                updateMicButtonUI();
+                updateStatusUI('listening');
+
+                if (state.activeMediaStream) {
+                    startAudioLevelAndGeminiVAD(state.activeMediaStream);
+                }
+
+                if (state.sttEngine === 'browser') {
+                    if (!recognition) initSpeechRecognition();
+                    if (recognition && !isRecognitionActive) {
+                        recognition.lang = state.recognitionLang;
+                        recognition.start();
+                    }
+                }
+            } catch (err) {
+                state.isListening = false;
+                updateMicButtonUI();
+                updateStatusUI('error');
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    showAlert('마이크 권한이 거부되었습니다. 주소창 왼쪽 자물쇠 아이콘에서 마이크 권한을 허용해 주세요.');
+                } else if (err.name === 'NotFoundError') {
+                    showAlert('연결된 마이크 또는 입력 장치를 찾을 수 없습니다. Windows 소리 설정을 확인해 주세요.');
+                } else {
+                    showAlert(err.message || '오디오 장치를 시작할 수 없습니다.');
+                }
+            }
+        }
+
+        function showAlert(msg) {
+            els.alertMessage.textContent = msg;
+            els.alertBanner.classList.remove('hidden');
+        }
+
+        function hideAlert() {
+            els.alertBanner.classList.add('hidden');
+        }
+
+        function showToast(msg) {
+            els.toast.textContent = msg;
+            els.toast.classList.remove('opacity-0');
+            clearTimeout(els.toast._timer);
+            els.toast._timer = setTimeout(() => {
+                els.toast.classList.add('opacity-0');
+            }, 2400);
+        }
+
+        function updateStatusUI(status) {
+            if (status === 'listening') {
+                els.statusBadge.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-300';
+                els.statusDot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+                els.statusText.textContent = state.sttEngine === 'gemini'
+                    ? '⚡ AI 동시 듣는 중'
+                    : (state.recognitionLang === 'ko-KR' ? '🇰🇷 한국어 듣는 중' : '🇺🇸 영어 듣는 중');
+            } else if (status === 'translating') {
+                els.statusBadge.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-300';
+                els.statusDot.className = 'w-2 h-2 rounded-full bg-blue-600 animate-ping';
+                els.statusText.textContent = '문맥 통역 중...';
+            } else if (status === 'error') {
+                els.statusBadge.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-300';
+                els.statusDot.className = 'w-2 h-2 rounded-full bg-red-600';
+                els.statusText.textContent = '오류 확인';
+            } else {
+                els.statusBadge.className = 'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-300';
+                els.statusDot.className = 'w-2 h-2 rounded-full bg-slate-400';
+                els.statusText.textContent = '대기 중';
+            }
+        }
+
+        function updateMicButtonUI() {
+            if (state.isListening) {
+                els.toggleMicBtn.className = 'relative mic-pulse flex-1 sm:flex-initial sm:min-w-[170px] flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-red-600 hover:bg-red-500 active:bg-red-700 text-white font-bold text-sm sm:text-base shadow-lg shadow-red-600/30 transition-all';
+                els.micBtnText.textContent = '통역 중지';
+            } else {
+                els.toggleMicBtn.className = 'relative flex-1 sm:flex-initial sm:min-w-[170px] flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-bold text-sm sm:text-base shadow-lg shadow-blue-600/25 transition-all';
+                els.micBtnText.textContent = '통역 시작';
+            }
+        }
+
+        function updateLangUI() {
+            if (state.sttEngine === 'gemini') {
+                els.langDirectionText.textContent = '⚡ AI 직접 청취 (한·영 자동 판별)';
+                els.interimLangLabel.textContent = '🎧 한·영 판별 중';
+            } else {
+                const isKo = state.recognitionLang === 'ko-KR';
+                if (state.appMode === 'mode2') {
+                    els.langDirectionText.textContent = isKo
+                        ? '🇰🇷 한국어 듣기 → 영어 번역'
+                        : '🇺🇸 English 듣기 → 한국어 번역';
+                } else {
+                    els.langDirectionText.textContent = isKo
+                        ? '주 인식: 한국어 우선 (자동 양방향)'
+                        : '주 인식: English 우선 (자동 양방향)';
+                }
+                els.interimLangLabel.textContent = isKo ? '🇰🇷 인식 중' : '🇺🇸 인식 중';
+            }
+        }
+
+        function updateModeAndLayoutUI() {
+            if (state.sttEngine === 'gemini') {
+                els.engineGeminiBtn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all bg-indigo-600 text-white shadow-sm';
+                els.engineBrowserBtn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900';
+            } else {
+                els.engineGeminiBtn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900';
+                els.engineBrowserBtn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all bg-indigo-600 text-white shadow-sm';
+            }
+
+            if (state.appMode === 'mode1') {
+                els.mode1Btn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all bg-blue-600 text-white shadow-sm';
+                els.mode2Btn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900';
+                els.splitViewBtn.classList.remove('hidden');
+                els.splitViewBtn.classList.add('flex');
+            } else {
+                els.mode1Btn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all text-slate-600 hover:text-slate-900';
+                els.mode2Btn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all bg-emerald-600 text-white shadow-sm';
+                els.splitViewBtn.classList.add('hidden');
+                els.splitViewBtn.classList.remove('flex');
+            }
+
+            if (state.appMode === 'mode1' && state.splitView) {
+                els.transcriptList.classList.add('hidden');
+                els.splitViewGrid.classList.remove('hidden');
+                els.splitViewGrid.classList.add('flex');
+                els.splitViewBtn.className = 'flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-300 transition-colors';
+                els.splitViewBtnText.textContent = '통합 보기';
+            } else {
+                els.transcriptList.classList.remove('hidden');
+                els.splitViewGrid.classList.add('hidden');
+                els.splitViewGrid.classList.remove('flex');
+                els.splitViewBtn.className = 'flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition-colors';
+                els.splitViewBtnText.textContent = '2단 분할';
+            }
+
+            updateLangUI();
+        }
+
+        async function loadAudioInputDevices(requestPermission = false) {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+            try {
+                if (requestPermission) {
+                    const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    tempStream.getTracks().forEach(t => t.stop());
+                }
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const audioInputs = devices.filter(d => d.kind === 'audioinput');
+
+                const currentVal = state.selectedDeviceId || 'default';
+                els.audioDeviceSelect.innerHTML = '<option value="default">기본 입력 장치 (Default)</option>';
+
+                audioInputs.forEach((device, index) => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    option.textContent = device.label || `마이크 입력 장치 ${index + 1}`;
+                    els.audioDeviceSelect.appendChild(option);
+                });
+
+                if ([...els.audioDeviceSelect.options].some(opt => opt.value === currentVal)) {
+                    els.audioDeviceSelect.value = currentVal;
+                } else {
+                    els.audioDeviceSelect.value = 'default';
+                    state.selectedDeviceId = 'default';
+                }
+            } catch (err) {}
+        }
+
+        async function bindSelectedAudioDevice() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                throw new Error('이 브라우저는 마이크 오디오 접근을 지원하지 않습니다.');
+            }
+            if (state.activeMediaStream) {
+                state.activeMediaStream.getTracks().forEach(t => t.stop());
+                state.activeMediaStream = null;
+            }
+            const audioConstraints = {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            };
+            if (state.selectedDeviceId && state.selectedDeviceId !== 'default') {
+                audioConstraints.deviceId = { exact: state.selectedDeviceId };
+            }
+            state.activeMediaStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+            await loadAudioInputDevices(false);
+        }
+
+        function stopAudioPipeline() {
+            if (state.vadInterval) {
+                clearInterval(state.vadInterval);
+                state.vadInterval = null;
+            }
+            if (state.mediaRecorder && state.mediaRecorder.state !== 'inactive') {
+                try { state.mediaRecorder.stop(); } catch (e) {}
+            }
+            state.mediaRecorder = null;
+            if (state.audioContext) {
+                try { state.audioContext.close(); } catch (e) {}
+                state.audioContext = null;
+            }
+            if (els.audioLevelBar) {
+                els.audioLevelBar.style.width = '0%';
+            }
+        }
+
+        function initSpeechRecognition() {
+            if (!SpeechRecognition) {
+                showAlert('현재 브라우저는 Web Speech API를 지원하지 않습니다. Chrome 또는 Edge를 사용해 주세요.');
+                return false;
+            }
+            if (recognition) return true;
+
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = state.recognitionLang;
+
+            recognition.onstart = () => {
+                isRecognitionActive = true;
+            };
+
+            recognition.onresult = (event) => {
+                if (!state.isListening || state.sttEngine !== 'browser') return;
+                let interimTranscript = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        const cleaned = transcript.trim();
+                        if (cleaned) {
+                            els.interimBox.classList.add('hidden');
+                            els.interimText.textContent = '';
+                            handleFinalSentence(cleaned);
+                        }
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+                if (interimTranscript.trim()) {
+                    els.welcomeCard.classList.add('hidden');
+                    els.interimBox.classList.remove('hidden');
+                    els.interimText.textContent = interimTranscript + ' ▍';
+                    scrollToBottom();
+                }
+            };
+
+            recognition.onerror = (event) => {
+                isRecognitionActive = false;
+                if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                    state.isListening = false;
+                    updateMicButtonUI();
+                    updateStatusUI('error');
+                    showAlert('마이크 권한이 거부되었습니다. 주소창 왼쪽 자물쇠 아이콘에서 마이크를 허용해 주세요.');
+                }
+            };
+
+            recognition.onend = () => {
+                isRecognitionActive = false;
+                if (state.isListening && state.sttEngine === 'browser') {
+                    clearTimeout(restartTimeout);
+                    restartTimeout = setTimeout(() => {
+                        try {
+                            if (state.isListening && state.sttEngine === 'browser' && !isRecognitionActive) {
+                                recognition.lang = state.recognitionLang;
+                                recognition.start();
+                            }
+                        } catch (e) {}
+                    }, 150);
+                }
+            };
+
+            return true;
+        }
+
+        function startAudioLevelAndGeminiVAD(stream) {
+            stopAudioPipeline();
+
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+
+            const audioContext = new AudioCtx();
+            if (audioContext.state === 'suspended') {
+                audioContext.resume().catch(() => {});
+            }
+            state.audioContext = audioContext;
+            const source = audioContext.createMediaStreamSource(stream);
+            const analyser = audioContext.createAnalyser();
+            analyser.fftSize = 512;
+            source.connect(analyser);
+
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
+            const timeDomainArray = new Uint8Array(analyser.fftSize);
+            const binHz = audioContext.sampleRate / analyser.fftSize;
+            const voiceStartBin = Math.max(1, Math.floor(300 / binHz));
+            const voiceEndBin = Math.min(dataArray.length - 1, Math.ceil(3400 / binHz));
+
+            let recordedChunks = [];
+            let hasSpeech = false;
+            let speechStartTime = null;
+            let lastVoiceTime = 0;
+            let chunkStartTime = Date.now();
+            let validSpeechMs = 0;
+            let ambientFloor = 6;
+            let peakSpeechVolume = 0;
+            let isFlushing = false;
+
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                ? 'audio/webm;codecs=opus'
+                : (MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '');
+
+            const initRecorder = () => {
+                if (!state.isListening || state.sttEngine !== 'gemini') return;
+                recordedChunks = [];
+                hasSpeech = false;
+                speechStartTime = null;
+                lastVoiceTime = 0;
+                chunkStartTime = Date.now();
+                validSpeechMs = 0;
+                peakSpeechVolume = 0;
+                isFlushing = false;
+
+                try {
+                    const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+                    state.mediaRecorder = recorder;
+
+                    recorder.ondataavailable = (e) => {
+                        if (e.data && e.data.size > 0) {
+                            recordedChunks.push(e.data);
+                        }
+                    };
+
+                    recorder.start(150);
+                } catch (err) {
+                    console.error('MediaRecorder error:', err);
+                }
+            };
+
+            const flushAndTranslate = async (force = false) => {
+                if (isFlushing) return;
+                isFlushing = true;
+
+                const spoke = hasSpeech || force;
+                const durationOk = validSpeechMs >= 550 || force;
+                const activeRec = state.mediaRecorder;
+                const currentMime = (activeRec && activeRec.mimeType) ? activeRec.mimeType : 'audio/webm';
+
+                hasSpeech = false;
+                els.interimBox.classList.add('hidden');
+                els.interimText.textContent = '';
+
+                if (activeRec && activeRec.state === 'recording') {
+                    await new Promise((resolve) => {
+                        activeRec.onstop = resolve;
+                        try { activeRec.stop(); } catch (e) { resolve(); }
+                        setTimeout(resolve, 250);
+                    });
+                }
+
+                const chunksToSend = recordedChunks.slice();
+                initRecorder();
+
+                if (spoke && durationOk && chunksToSend.length > 0) {
+                    const blob = new Blob(chunksToSend, { type: currentMime });
+                    if (blob.size > 1200) {
+                        await processGeminiAudioChunk(blob);
+                    }
+                }
+            };
+
+            els.forceSendBtn.onclick = () => {
+                if (state.isListening && state.sttEngine === 'gemini') {
+                    flushAndTranslate(true);
+                }
+            };
+
+            if (state.sttEngine === 'gemini') {
+                initRecorder();
+            }
+
+            state.vadInterval = setInterval(() => {
+                if (!state.isListening) return;
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume().catch(() => {});
+                }
+
+                analyser.getByteFrequencyData(dataArray);
+                analyser.getByteTimeDomainData(timeDomainArray);
+
+                let sumSquares = 0;
+                for (let i = 0; i < timeDomainArray.length; i++) {
+                    const normalized = (timeDomainArray[i] - 128) / 128;
+                    sumSquares += normalized * normalized;
+                }
+                const rmsLevel = Math.sqrt(sumSquares / timeDomainArray.length) * 100;
+
+                let voiceSum = 0;
+                let binCount = 0;
+                for (let i = voiceStartBin; i <= voiceEndBin; i++) {
+                    voiceSum += dataArray[i];
+                    binCount++;
+                }
+                const avgVolume = binCount > 0 ? (voiceSum / binCount) : 0;
+
+                if (!hasSpeech) {
+                    ambientFloor = Math.min(22, ambientFloor * 0.90 + avgVolume * 0.10);
+                }
+                const startThreshold = Math.max(state.noiseGateThreshold, ambientFloor + 7.5);
+                const hasRealAcousticEnergy = rmsLevel >= 2.2;
+
+                const pct = Math.min(100, Math.round((avgVolume / 55) * 100));
+                if (els.audioLevelBar) {
+                    els.audioLevelBar.style.width = `${pct}%`;
+                    els.audioLevelBar.className = (avgVolume >= startThreshold && hasRealAcousticEnergy)
+                        ? 'h-full bg-emerald-400 transition-all duration-75'
+                        : 'h-full bg-slate-600 transition-all duration-75';
+                }
+
+                if (state.sttEngine === 'gemini' && !isFlushing) {
+                    const now = Date.now();
+
+                    if (!hasSpeech) {
+                        if (avgVolume >= startThreshold && hasRealAcousticEnergy) {
+                            hasSpeech = true;
+                            speechStartTime = now;
+                            lastVoiceTime = now;
+                            peakSpeechVolume = avgVolume;
+                            validSpeechMs = 100;
+                            els.welcomeCard.classList.add('hidden');
+                            els.interimBox.classList.remove('hidden');
+                            els.interimText.textContent = '음성 수신 중...';
+                            scrollToBottom();
+                        } else if (now - chunkStartTime > 2500) {
+                            flushAndTranslate(false);
+                        }
+                    } else {
+                        if (avgVolume > peakSpeechVolume) {
+                            peakSpeechVolume = avgVolume;
+                        }
+                        const activeSpeakThreshold = Math.max(startThreshold * 0.95, peakSpeechVolume * 0.55);
+
+                        if (avgVolume >= activeSpeakThreshold && hasRealAcousticEnergy) {
+                            validSpeechMs += 100;
+                            lastVoiceTime = now;
+                        }
+
+                        const silenceDuration = now - lastVoiceTime;
+                        const totalSpeechDuration = now - speechStartTime;
+
+                        if (silenceDuration >= 1050 || totalSpeechDuration >= 9000) {
+                            flushAndTranslate(false);
+                        }
+                    }
+                }
+            }, 100);
+        }
+
+        function startHybridInterimCaption() {
+            stopHybridInterimCaption();
+        }
+
+        function stopHybridInterimCaption() {
+            if (els.interimText) {
+                els.interimText.dataset.liveDraft = '';
+            }
+        }
+
+        function getRecentConversationContext() {
+            if (!state.transcripts || state.transcripts.length === 0) {
+                return "No prior conversation yet.";
+            }
+            return state.transcripts
+                .slice(-6)
+                .map((t, idx) => `${idx + 1}. [${t.direction}] Original: "${t.original}" -> Translated: "${t.translated}"`)
+                .join('\n');
+        }
+
+        async function processGeminiAudioChunk(audioBlob) {
+            const apiUrl = buildGeminiUrl();
+
+            try {
+                updateStatusUI('translating');
+                const base64Audio = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(audioBlob);
+                });
+
+                const prompt =
+                    "You are a strict acoustic speech-to-text transcriber and natural business interpreter for Korean and English.\n" +
+                    "ZERO-HALLUCINATION POLICY:\n" +
+                    "1. Transcribe ONLY words that are clearly, audibly, and unmistakably spoken in this isolated audio clip.\n" +
+                    "2. DO NOT invent, guess, extrapolate, or generate any conversational reply or continuation.\n" +
+                    "3. If the audio is silent, contains only background noise, breathing, room hum, or unintelligible mumbling, you MUST return {\"empty\": true}.\n" +
+                    "4. If the audio is only a single filler word or common silence hallucination ('Thank you', 'I'm sorry', 'Yes', 'Okay', '네', '감사합니다', '죄송합니다'), return {\"empty\": true}.\n" +
+                    "5. Only if clear speech exists, set 'original' to the exact spoken words (Hangul for Korean, Latin script for English) and 'translated' to a smooth, natural, idiomatic translation in the other language (avoid awkward literal translation).\n\n" +
+                    "Respond ONLY in valid JSON: " +
+                    "{\"empty\": false, \"lang\": \"ko\" or \"en\", \"original\": \"exact spoken words\", \"translated\": \"natural idiomatic translation\"}";
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [
+                                { text: prompt },
+                                { inlineData: { mimeType: audioBlob.type.split(';')[0] || 'audio/webm', data: base64Audio } }
+                            ]
+                        }],
+                        generationConfig: {
+                            temperature: 0.0,
+                            responseMimeType: "application/json"
+                        }
+                    })
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({}));
+                    const errMsg = errData?.error?.message || `HTTP ${response.status}`;
+                    throw new Error(`통역 연결 오류: ${errMsg}`);
+                }
+
+                const result = await response.json();
+                const rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!rawText) return;
+
+                const parsed = JSON.parse(rawText);
+                if (parsed.empty || !parsed.original || !parsed.translated) return;
+
+                const cleanOrig = parsed.original.trim();
+                const normOrig = cleanOrig.replace(/[.!?~,\s'"-]/g, '').toLowerCase();
+                const hallucinationBlocklist = [
+                    'imsosorry', 'imsorry', 'sorry', 'thankyou', 'thankyouverymuch', 'thanks', 'thanksforwatching',
+                    'subtitlesby', 'bye', 'goodbye', 'you', 'yes', 'no', 'okay', 'ok', 'uh', 'um', 'hmm', 'ah',
+                    'whereareyougoing', 'excuseme', 'hellothere', 'howareyou', 'whatareyoudoing', 'justamoment',
+                    '죄송합니다', '정말죄송합니다', '감사합니다', '고맙습니다', '네', '예', '아니요', '그럼요', '당연하죠',
+                    '그럼요당연하죠', '수고하셨습니다', '시청해주셔서감사합니다', '구독과좋아요', '음', '어', '아', '그',
+                    '어디가세요', '어디가시나요', '잠시만요', '잠깐만요', '무슨일이세요', '잘지냈어요', '실례합니다', '여보세요'
+                ];
+                if (normOrig.length < 3 || hallucinationBlocklist.includes(normOrig)) return;
+
+                renderCompletedTranslation(cleanOrig, parsed.translated.trim(), parsed.lang === 'ko');
+            } catch (err) {
+                showAlert(err.message || '통역 처리 중 오류가 발생했습니다.');
+            } finally {
+                if (state.isListening) updateStatusUI('listening');
+                else updateStatusUI('idle');
+            }
+        }
+
+        function renderCompletedTranslation(originalText, translatedText, isKoToEn) {
+            els.welcomeCard.classList.add('hidden');
+            const itemId = 'card-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
+            const timeStr = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const directionCode = isKoToEn ? 'KO → EN' : 'EN → KO';
+
+            const singleCard = createSubtitleCardElement(originalText, directionCode, timeStr, isKoToEn);
+            singleCard.querySelector('.translated-body').textContent = translatedText;
+            els.transcriptList.appendChild(singleCard);
+
+            const splitCard = appendChronologicalSplitRow(originalText, directionCode, timeStr, isKoToEn);
+            splitCard.querySelector('.translated-body').textContent = translatedText;
+            scrollToBottom();
+
+            state.transcripts.push({
+                id: itemId,
+                original: originalText,
+                translated: translatedText,
+                direction: directionCode,
+                time: timeStr
+            });
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function copyAllTranscripts() {
+            if (state.transcripts.length === 0) {
+                showToast('복사할 통역 내용이 없습니다.');
+                return;
+            }
+
+            const formattedText = state.transcripts
+                .map(item => `[${item.time} | ${item.direction}]\n원문: ${item.original}\n통역: ${item.translated}`)
+                .join('\n\n');
+
+            const textArea = document.createElement('textarea');
+            textArea.value = formattedText;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-9999px';
+            document.body.appendChild(textArea);
+            textArea.select();
+
+            try {
+                document.execCommand('copy');
+                showToast('전체 통역 기록이 클립보드에 복사되었습니다.');
+            } catch (err) {
+                showToast('복사에 실패했습니다.');
+            } finally {
+                document.body.removeChild(textArea);
+            }
+        }
+
+        function clearAllTranscripts() {
+            state.transcripts = [];
+            koTurnCount = 0;
+            enTurnCount = 0;
+            els.transcriptList.innerHTML = '';
+            els.splitTimelineRows.innerHTML = '';
+            els.koCountBadge.textContent = '0건';
+            els.enCountBadge.textContent = '0건';
+            els.welcomeCard.classList.remove('hidden');
+            showToast('통역 기록이 모두 삭제되었습니다.');
+        }
+
+        els.engineGeminiBtn.addEventListener('click', async () => {
+            if (state.sttEngine === 'gemini') return;
+            state.sttEngine = 'gemini';
+            localStorage.setItem('interpreter_stt_engine', 'gemini');
+            updateModeAndLayoutUI();
+            if (state.isListening) {
+                if (recognition) {
+                    isRecognitionActive = false;
+                    try { recognition.abort(); } catch (e) {}
+                }
+                if (state.activeMediaStream) startAudioLevelAndGeminiVAD(state.activeMediaStream);
+                startHybridInterimCaption();
+                updateStatusUI('listening');
+            }
+            showToast('⚡ AI 동시 인식 모드: 음성을 직접 판별해 원문과 문맥 통역을 표시합니다.');
+        });
+
+        els.engineBrowserBtn.addEventListener('click', () => {
+            if (state.sttEngine === 'browser') return;
+            state.sttEngine = 'browser';
+            localStorage.setItem('interpreter_stt_engine', 'browser');
+            stopHybridInterimCaption();
+            updateModeAndLayoutUI();
+            if (state.isListening) {
+                if (state.activeMediaStream) startAudioLevelAndGeminiVAD(state.activeMediaStream);
+                if (!recognition) initSpeechRecognition();
+                if (!isRecognitionActive) {
+                    try {
+                        recognition.lang = state.recognitionLang;
+                        recognition.start();
+                    } catch (e) {}
+                }
+                updateStatusUI('listening');
+            }
+            showToast('🎙️ 브라우저 즉시 인식 모드: 하단 버튼으로 한·영을 즉시 전환합니다.');
+        });
+
+        els.mode1Btn.addEventListener('click', () => {
+            state.appMode = 'mode1';
+            localStorage.setItem('interpreter_app_mode', 'mode1');
+            updateModeAndLayoutUI();
+            if (state.isListening) updateStatusUI('listening');
+            showToast('1번 모드: 단일 창 한·영 양방향 자동 감지');
+        });
+
+        els.mode2Btn.addEventListener('click', () => {
+            state.appMode = 'mode2';
+            localStorage.setItem('interpreter_app_mode', 'mode2');
+            updateModeAndLayoutUI();
+            if (state.isListening) updateStatusUI('listening');
+            showToast('2번 모드: 단방향 고정 (창 2개 분리 사용)');
+        });
+
+        els.splitViewBtn.addEventListener('click', () => {
+            state.splitView = !state.splitView;
+            localStorage.setItem('interpreter_split_view', String(state.splitView));
+            updateModeAndLayoutUI();
+        });
+
+        els.toggleMicBtn.addEventListener('click', toggleListening);
+
+        els.audioDeviceSelect.addEventListener('change', async (e) => {
+            state.selectedDeviceId = e.target.value;
+            localStorage.setItem('interpreter_device_id', state.selectedDeviceId);
+            if (state.isListening) {
+                try {
+                    await bindSelectedAudioDevice();
+                    if (state.activeMediaStream) startAudioLevelAndGeminiVAD(state.activeMediaStream);
+                    showToast('오디오 입력 장치가 변경되었습니다.');
+                } catch (err) {
+                    showAlert(err.message);
+                }
+            }
+        });
+
+        els.refreshDevicesBtn.addEventListener('click', async () => {
+            await loadAudioInputDevices(true);
+            showToast('오디오 입력 장치 목록을 새로고침했습니다.');
+        });
+
+        function updateNoiseGateLabel(val) {
+            const levelText = val <= 15 ? '약함' : (val <= 26 ? '보통' : '강함');
+            els.noiseGateLabel.textContent = `${levelText} (${val})`;
+        }
+
+        els.noiseGateSlider.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value, 10);
+            state.noiseGateThreshold = val;
+            localStorage.setItem('interpreter_noise_gate', String(val));
+            updateNoiseGateLabel(val);
+        });
+
+        els.langToggleBtn.addEventListener('click', () => {
+            if (state.sttEngine === 'gemini') {
+                state.sttEngine = 'browser';
+                state.recognitionLang = 'en-US';
+                localStorage.setItem('interpreter_stt_engine', 'browser');
+                localStorage.setItem('interpreter_lang', 'en-US');
+                updateModeAndLayoutUI();
+                if (state.isListening) {
+                    if (state.activeMediaStream) startAudioLevelAndGeminiVAD(state.activeMediaStream);
+                    if (!recognition) initSpeechRecognition();
+                    try {
+                        recognition.lang = 'en-US';
+                        recognition.start();
+                    } catch (e) {}
+                    updateStatusUI('listening');
+                }
+                showToast('🇺🇸 English 즉시 듣기 모드로 전환되었습니다.');
+                return;
+            }
+
+            state.recognitionLang = state.recognitionLang === 'ko-KR' ? 'en-US' : 'ko-KR';
+            localStorage.setItem('interpreter_lang', state.recognitionLang);
+            els.recognitionLangSelect.value = state.recognitionLang;
+            updateLangUI();
+
+            if (state.isListening && recognition) {
+                clearTimeout(restartTimeout);
+                try {
+                    recognition.abort();
+                } catch (e) {}
+                restartTimeout = setTimeout(() => {
+                    try {
+                        recognition.lang = state.recognitionLang;
+                        recognition.start();
+                    } catch (e) {}
+                }, 80);
+                updateStatusUI('listening');
+            }
+            showToast(els.langDirectionText.textContent);
+        });
+
+        els.manualInputForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const text = els.manualTextInput.value.trim();
+            if (!text) return;
+            els.manualTextInput.value = '';
+            handleFinalSentence(text);
+        });
+
+        els.copyAllBtn.addEventListener('click', copyAllTranscripts);
+        els.clearLogBtn.addEventListener('click', clearAllTranscripts);
+        els.closeAlertBtn.addEventListener('click', hideAlert);
+
+        els.openSettingsBtn.addEventListener('click', () => {
+            els.apiKeyInput.value = state.userApiKey;
+            els.recognitionLangSelect.value = state.recognitionLang;
+            els.fontSizeSelect.value = state.fontSize;
+            els.settingsModal.classList.remove('hidden');
+        });
+
+        const closeSettings = () => els.settingsModal.classList.add('hidden');
+        els.closeSettingsBtn.addEventListener('click', closeSettings);
+        els.cancelSettingsBtn.addEventListener('click', closeSettings);
+
+        els.saveSettingsBtn.addEventListener('click', () => {
+            state.userApiKey = els.apiKeyInput.value.trim();
+            state.recognitionLang = els.recognitionLangSelect.value;
+            state.fontSize = els.fontSizeSelect.value;
+
+            localStorage.setItem('interpreter_api_key', state.userApiKey);
+            localStorage.setItem('interpreter_lang', state.recognitionLang);
+            localStorage.setItem('interpreter_font_size', state.fontSize);
+
+            updateLangUI();
+
+            document.querySelectorAll('.translated-body').forEach(el => {
+                const parentCard = el.closest('[data-side]');
+                const colorClass = parentCard && parentCard.dataset.side === 'right'
+                    ? 'text-emerald-950'
+                    : 'text-blue-950';
+                el.className = `translated-body ${getTranslatedFontSizeClass()} font-bold ${colorClass} leading-snug break-keep`;
+            });
+
+            if (state.isListening && recognition) {
+                try { recognition.stop(); } catch (e) {}
+            }
+
+            closeSettings();
+            showToast('설정이 저장되었습니다.');
+        });
+
+        window.addEventListener('load', async () => {
+            els.noiseGateSlider.value = state.noiseGateThreshold;
+            updateNoiseGateLabel(state.noiseGateThreshold);
+            updateModeAndLayoutUI();
+            await loadAudioInputDevices(false);
+            initSpeechRecognition();
+        });
+    </script>
+</body>
+</html>
